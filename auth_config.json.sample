@@ -1,4 +1,0 @@
-{
-  "domain": "<your auth0 domain>",
-  "clientId": "<auth0 application client id>"
-}
