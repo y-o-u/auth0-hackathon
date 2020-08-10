@@ -104,6 +104,7 @@ resources:
         ManagedPolicyArns:
           - "arn:aws:iam::aws:policy/AWSLambdaExecute"
           - "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+          - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
     createTranscribeJobRole:
       Type: AWS::IAM::Role
       Properties:
