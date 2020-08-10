@@ -1,0 +1,159 @@
+service: auth0-hackason-stepfunction
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: prd
+  region: ap-northeast-1
+
+plugins:
+  - serverless-step-functions
+
+functions:
+  TriggerStepFunction:
+    name: "TriggerStepFunction"
+    handler: TriggerStepFunction.lambda_handler
+    description: "A Function to trigger StepFunction"
+    memorySize: 256
+    timeout: 600
+    role: triggerStepFunctionRole
+    environment:
+      StateMachineArn: !Ref Auth0HackStateMachine
+      TargetBucket: "auth0-hack-output-533554244959"
+  CreateTranscribeJob:
+    name: "CreateTranscribeJob"
+    handler: CreateTranscribeJob.lambda_handler
+    description: "A Function to create transcribe job"
+    memorySize: 256
+    timeout: 600
+    role: createTranscribeJobRole
+  GetTranscribeJobResult:
+    name: "GetTranscribeJobResult"
+    handler: GetTranscribeJobResult.lambda_handler
+    description: "A Function to get transcribe job status"
+    memorySize: 256
+    timeout: 600
+    role: getTranscribeJobResultRole
+  CreateCaption:
+    name: "CreateCaption"
+    handler: CreateCaption.lambda_handler
+    description: "A Function to create caption"
+    memorySize: 256
+    timeout: 600
+    role: createCaptionRole
+
+stepFunctions:
+  stateMachines:
+    Auth0HackStateMachine:
+      name: Auth0HackStateMachine
+      definition:
+        StartAt: CreateMetaData
+        States:
+          CreateMetaData:
+            Type: Task
+            Resource: arn:aws:lambda:ap-northeast-1:533554244959:function:pymediainfo_layered
+            ResultPath: "$.createMetaData"
+            Next: TriggerMediaConvert
+          TriggerMediaConvert:
+            Type: Task
+            Resource: arn:aws:lambda:ap-northeast-1:533554244959:function:MediaConvertTrigger
+            ResultPath: "$.triggerMediaConvert"
+            Next: CreateTranscribeJob
+          CreateTranscribeJob:
+            Type: Task
+            Resource: !GetAtt CreateTranscribeJob.Arn
+            ResultPath: "$.createTranscribeJob"
+            Next: WaitTranscribeJob
+          WaitTranscribeJob:
+            Type: Wait
+            Seconds: 30
+            Next: GetTranscribeJobResult
+          GetTranscribeJobResult:
+            Type: Task
+            Resource: !GetAtt GetTranscribeJobResult.Arn
+            ResultPath: "$.transcribeJobStatus"
+            Next: JudgeWhetherProceed
+          JudgeWhetherProceed:
+            Type: Choice
+            Choices:
+            - Variable: "$.transcribeJobStatus.result"
+              BooleanEquals: false
+              Next: WaitTranscribeJob
+            Default: CreateCaption
+          CreateCaption:
+            Type: Task
+            Resource: !GetAtt CreateCaption.Arn
+            ResultPath: "$.createCaption"
+            End: true
+
+resources:
+  Resources:
+    triggerStepFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: "TriggerStepFunctionRole"
+        Path: "/service-role/"
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+          - "arn:aws:iam::aws:policy/AWSStepFunctionsFullAccess"
+    createTranscribeJobRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: "CreateTranscribeJob"
+        Path: "/service-role/"
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+          - "arn:aws:iam::aws:policy/AmazonTranscribeFullAccess"
+          - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+    getTranscribeJobResultRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: "GetTranscribeJobResult"
+        Path: "/service-role/"
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+          - "arn:aws:iam::aws:policy/AmazonTranscribeFullAccess"
+    createCaptionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: "CreateCaption"
+        Path: "/service-role/"
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/AWSLambdaExecute"
+          - "arn:aws:iam::aws:policy/TranslateFullAccess"
+          - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+          - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+
+
