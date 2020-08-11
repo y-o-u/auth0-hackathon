@@ -20,12 +20,13 @@ def lambda_handler(event, context):
 
     s3 = boto3.resource('s3')
     s3.Bucket(event["Records"][0]["s3"]["bucket"]["name"]).download_file(s3_key, tmp_filename)
-    zfile = zipfile.ZipFile('/tmp/file.zip')
+    zfile = zipfile.ZipFile(tmp_filename)
     filelist = zfile.namelist()
     print(filelist)
     
     s3_path = ""
     json_dict = {}
+    s3_client = boto3.client('s3')
     for filename in filelist:
         if not os.path.basename('/tmp/'+filename):
             os.mkdir('/tmp/'+filename)
@@ -41,11 +42,11 @@ def lambda_handler(event, context):
                 json_dict = json.load(f)
             elif '.mp4' in filename:
                 print('/tmp/'+filename)
-                s3_client = boto3.client('s3')
-                s3_client.upload_file('/tmp/'+filename, event["Records"][0]["s3"]["bucket"]["name"], "videos/" + filename)
-                s3_path = "s3://" + event["Records"][0]["s3"]["bucket"]["name"] + "/videos/" + filename
+                enc_filename = filename.encode('cp437').decode('utf-8')
+                s3_client.upload_file('/tmp/'+filename, event["Records"][0]["s3"]["bucket"]["name"], "videos/" + enc_filename)
+                s3_path = "s3://" + event["Records"][0]["s3"]["bucket"]["name"] + "/videos/" + enc_filename
                 print(s3_path)
-                target_key = "/videos/" + filename
+                target_key = "/videos/" + enc_filename
     
     
     if len(json_dict) == 0:
@@ -58,7 +59,7 @@ def lambda_handler(event, context):
         lang = 'en-US'
     
     if s3_path == "":
-        logger.error("The object does not exist: s3://" + event["Records"][0]["s3"]["bucket"]["name"] + "/videos/" + filename)
+        logger.error("The object does not exist: s3://" + event["Records"][0]["s3"]["bucket"]["name"] + "/videos/" + enc_filename)
         return
     
     if len(target_key.rsplit('/', 1)) > 1:
@@ -70,3 +71,5 @@ def lambda_handler(event, context):
         stateMachineArn = os.environ['StateMachineArn'],
         input = input_str
     )
+
+    s3_client.delete_object(Bucket=event["Records"][0]["s3"]["bucket"]["name"], Key=s3_key)
