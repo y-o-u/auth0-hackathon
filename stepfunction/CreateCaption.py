@@ -103,11 +103,12 @@ def lambda_handler(event, context):
     
     dynamodb_table = dynamodb.Table('Contents-Dev')
     response = dynamodb_table.query(
+        IndexName='file-sk-index',
         KeyConditionExpression=Key('file').eq(event['FileName'].rsplit('.', 1)[0])
     )
     dynamodb_table.update_item(
         Key = {
-            'file': event['FileName'].rsplit('.', 1)[0],
+            'contents_id': response['Items'][0]['contents_id'],
             'sk': response['Items'][0]['sk']
         },
         UpdateExpression = "set caption_jp=:cj, caption_en=:ce, new_arrivals=:na",
