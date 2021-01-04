@@ -58,14 +58,24 @@ def lambda_handler(event, context):
     else:
         lang = 'en-US'
     
+    if 'title' in json_dict:
+        title = json_dict['title']
+    else:
+        title = ''
+    
+    if 'tags' in json_dict:
+        tags = ','.join(json_dict["tags"])
+    else:
+        tags = ''
+    
     if s3_path == "":
         logger.error("The object does not exist: s3://" + event["Records"][0]["s3"]["bucket"]["name"] + "/videos/" + enc_filename)
         return
     
     if len(target_key.rsplit('/', 1)) > 1:
-        input_str = '{"MediaFileURL": "' + s3_path + '","LanguageCode": "' + lang + '", "FileName": "' + target_key.rsplit('/', 1)[1] + '","OutputBucket": "' + target_bucket + '"}'
+        input_str = '{"MediaFileURL": "' + s3_path + '","LanguageCode": "' + lang + '", "FileName": "' + target_key.rsplit('/', 1)[1] + '","OutputBucket": "' + target_bucket + '",' + '"Title": "' + title + '",' + '"Tags": "' + tags + '"}'
     else:
-        input_str = '{"MediaFileURL": "' + s3_path + '","LanguageCode": "' + lang + '", "FileName": "' + target_key + '","OutputBucket": "' + target_bucket + '"}'
+        input_str = '{"MediaFileURL": "' + s3_path + '","LanguageCode": "' + lang + '", "FileName": "' + target_key + '","OutputBucket": "' + target_bucket + '",' + '"Title": "' + title + '",' + '"Tags": "' + tags + '"}'
     print(input_str)
     stepfunction.start_execution(
         stateMachineArn = os.environ['StateMachineArn'],

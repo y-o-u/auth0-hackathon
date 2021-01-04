@@ -20,6 +20,8 @@ functions:
     environment:
       StateMachineArn: !Ref Auth0HackStateMachine
       TargetBucket: "auth0-hack-output-533554244959"
+    tags:
+      Project: study-archive
   CreateTranscribeJob:
     name: "CreateTranscribeJob"
     handler: CreateTranscribeJob.lambda_handler
@@ -27,6 +29,8 @@ functions:
     memorySize: 256
     timeout: 600
     role: createTranscribeJobRole
+    tags:
+      Project: study-archive
   GetTranscribeJobResult:
     name: "GetTranscribeJobResult"
     handler: GetTranscribeJobResult.lambda_handler
@@ -34,6 +38,8 @@ functions:
     memorySize: 256
     timeout: 600
     role: getTranscribeJobResultRole
+    tags:
+      Project: study-archive
   CreateCaption:
     name: "CreateCaption"
     handler: CreateCaption.lambda_handler
@@ -41,6 +47,8 @@ functions:
     memorySize: 256
     timeout: 600
     role: createCaptionRole
+    tags:
+      Project: study-archive
 
 stepFunctions:
   stateMachines:

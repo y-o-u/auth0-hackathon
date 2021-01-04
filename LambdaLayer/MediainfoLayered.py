@@ -24,6 +24,7 @@ from pymediainfo import MediaInfo
 from botocore.config import Config
 import urllib.parse
 from datetime import datetime
+import uuid
 
 region = os.environ['AWS_REGION']
 
@@ -39,7 +40,7 @@ def get_signed_url(expires_in, bucket, obj):
     presigned_url = s3_cli.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': obj}, ExpiresIn=expires_in)
     return presigned_url
 
-def put_mediainfo(media_info):
+def put_mediainfo(media_info, title, tags):
     for track in media_info.tracks:
         if track.track_type == 'General':
             file = urllib.parse.unquote_plus(track.file_name)
@@ -51,20 +52,28 @@ def put_mediainfo(media_info):
             break
     
     dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('media')
+    table = dynamodb.Table('Contents-Dev')
     
     parsed = urllib.parse.urlparse(complete_name)
     
+    title_name = file if title == "" else title
+    tags_array = tags.split(',')
+    tags_obj = {"tags":tags_array}
+    
     response = table.put_item(
        Item={
+            'contents_id': str(uuid.uuid4()),
+            'title': title_name,
             'file': file,
-            'sk': int(now_time),
+            'sk': str(now_time),
+            'new_arrivals': 0,
             'complete_name': parsed.scheme + "://" + parsed.netloc + parsed.path,
             'folder_name': folder_name,
             'internet_media_type': internet_media_type,
             'duration': duration,
             'createdAt': int(now_time),
-            'updatedAt': int(now_time)
+            'updatedAt': int(now_time),
+            'tags': json.dumps(tags_obj,ensure_ascii=False)
         }
     )
     return response
@@ -132,7 +141,7 @@ def lambda_handler(event, context):
     
     print(media_info.to_json())
     
-    res = put_mediainfo(media_info)
+    res = put_mediainfo(media_info, event['Title'],event['Tags'])
     print(res)
     
     # Finish the Lambda function with an HTTP 200 status code:

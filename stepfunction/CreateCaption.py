@@ -4,10 +4,13 @@ import ast
 import os
 import math
 from boto3.dynamodb.conditions import Key
+import uuid
 
 s3 = boto3.resource('s3')
 dynamodb = boto3.resource('dynamodb')
 translate = boto3.client('translate')
+folder = str(uuid.uuid4())
+outputDomain = "assets.auth.classmethod.net"
 
 def create_timecode(time):
     hour = math.floor(float(time) / 3600)
@@ -90,15 +93,15 @@ def lambda_handler(event, context):
     fp_en.close()
     
     bucket = s3.Bucket(s3bucket)
-    caption_file_jp = event['createTranscribeJob']['jobName'] + '_ja.vtt'
-    caption_file_en = event['createTranscribeJob']['jobName'] + '_en.vtt'
+    caption_file_jp = "vtt/" + event['createTranscribeJob']['jobName'] + '_ja.vtt'
+    caption_file_en = "vtt/" + event['createTranscribeJob']['jobName'] + '_en.vtt'
     bucket.upload_file('/tmp/tmp_ja.vtt', caption_file_jp)
     bucket.upload_file('/tmp/tmp_en.vtt', caption_file_en)
     
     os.remove('/tmp/tmp_ja.vtt')
     os.remove('/tmp/tmp_en.vtt')
     
-    dynamodb_table = dynamodb.Table('media')
+    dynamodb_table = dynamodb.Table('Contents-Dev')
     response = dynamodb_table.query(
         KeyConditionExpression=Key('file').eq(event['FileName'].rsplit('.', 1)[0])
     )
@@ -107,10 +110,11 @@ def lambda_handler(event, context):
             'file': event['FileName'].rsplit('.', 1)[0],
             'sk': response['Items'][0]['sk']
         },
-        UpdateExpression = "set caption_jp=:cj, caption_en=:ce",
+        UpdateExpression = "set caption_jp=:cj, caption_en=:ce, new_arrivals=:na",
         ExpressionAttributeValues = {
-            ':cj': "https://" + event['transcribeJobStatus']['outputS3bucket'] + ".s3-ap-northeast-1.amazonaws.com/" + caption_file_jp,
-            ':ce': "https://" + event['transcribeJobStatus']['outputS3bucket'] + ".s3-ap-northeast-1.amazonaws.com/" + caption_file_en
+            ':cj': "https://" + outputDomain + "/" + caption_file_jp,
+            ':ce': "https://" + outputDomain + "/" + caption_file_en,
+            ':na': 1
         }
     )
     
